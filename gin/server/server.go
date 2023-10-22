@@ -43,6 +43,11 @@ func newServer(modules ...module.Module) *http.Server {
 	log := logger.Get()
 
 	r := gin.Default()
+
+	if cfg.IsProd() {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r.Use(requestid.New())
 
 	registerModules(r, modules...)

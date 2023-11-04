@@ -79,7 +79,10 @@ func loadToken(c *gin.Context, ja *JWTAuth, findTokenFns ...func(r *http.Request
 
 	c.Set(TokenCtxKey, token)
 	c.Set(ErrorCtxKey, err)
-	c.Set(UserCtxKey, token.Subject())
+
+	if token != nil {
+		c.Set(UserCtxKey, token.Subject())
+	}
 }
 
 func verifyRequest(ja *JWTAuth, r *http.Request, findTokenFns ...func(r *http.Request) string) (jwt.Token, error) {

@@ -1,6 +1,7 @@
 package jwtauth
 
 import (
+	"firebase.google.com/go/v4/auth"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,5 +12,11 @@ type Option func(*config)
 func WithHandler(handler gin.HandlerFunc) Option {
 	return func(cfg *config) {
 		cfg.handler = handler
+	}
+}
+
+func WithFirebaseAuth(firebaseAuth *auth.Client) Option {
+	return func(cfg *config) {
+		cfg.firebaseAuth = firebaseAuth
 	}
 }

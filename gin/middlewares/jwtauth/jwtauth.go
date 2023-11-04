@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"firebase.google.com/go/v4/auth"
 	"github.com/gin-gonic/gin"
 	jwtV5 "github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwa"
@@ -37,7 +38,8 @@ var (
 )
 
 type config struct {
-	handler gin.HandlerFunc
+	handler      gin.HandlerFunc
+	firebaseAuth *auth.Client
 }
 
 func New(opts ...Option) gin.HandlerFunc {
@@ -47,13 +49,20 @@ func New(opts ...Option) gin.HandlerFunc {
 		opt(cfg)
 	}
 
+	if cfg.firebaseAuth != nil {
+		println("Using firebase auth")
+
+		return FirebaseAuthVerify(cfg.firebaseAuth)
+	}
+	println("NO using firebase auth")
+
 	publicKey, _ := jwtV5.ParseRSAPublicKeyFromPEM([]byte(strings.ReplaceAll(os.Getenv("PUBLIC_KEY"), "\\n", "\n")))
-	jwtAuth := NewJWTAuth("RS256", nil, publicKey)
+	jwtAuth := newJWTAuth("RS256", nil, publicKey)
 
 	return Authenticator(jwtAuth, cfg)
 }
 
-func NewJWTAuth(alg string, signKey interface{}, verifyKey interface{}) *JWTAuth {
+func newJWTAuth(alg string, signKey interface{}, verifyKey interface{}) *JWTAuth {
 	ja := &JWTAuth{alg: jwa.SignatureAlgorithm(alg), signKey: signKey, verifyKey: verifyKey}
 
 	if ja.verifyKey != nil {
@@ -70,12 +79,7 @@ func loadToken(c *gin.Context, ja *JWTAuth, findTokenFns ...func(r *http.Request
 
 	c.Set(TokenCtxKey, token)
 	c.Set(ErrorCtxKey, err)
-
-	_, claims, _ := tokenFromContext(c)
-
-	if claims != nil {
-		c.Set(UserCtxKey, claims["sub"])
-	}
+	c.Set(UserCtxKey, token.Subject())
 }
 
 func verifyRequest(ja *JWTAuth, r *http.Request, findTokenFns ...func(r *http.Request) string) (jwt.Token, error) {
@@ -163,7 +167,7 @@ func ErrorReason(err error) error {
 // until you decide to write something similar and customize your client response.
 func Authenticator(ja *JWTAuth, cfg *config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		loadToken(c, ja, TokenFromHeader, TokenFromCookie)
+		loadToken(c, ja, tokenFromHeader, TokenFromCookie)
 
 		token, _, err := tokenFromContext(c)
 
@@ -251,9 +255,9 @@ func TokenFromCookie(r *http.Request) string {
 	return cookie.Value
 }
 
-// TokenFromHeader tries to retreive the token string from the
+// tokenFromHeader tries to retreive the token string from the
 // "Authorization" reqeust header: "Authorization: BEARER T".
-func TokenFromHeader(r *http.Request) string {
+func tokenFromHeader(r *http.Request) string {
 	// Get token from authorization header.
 	bearer := r.Header.Get("Authorization")
 	if len(bearer) > 7 && strings.ToUpper(bearer[0:6]) == "BEARER" {

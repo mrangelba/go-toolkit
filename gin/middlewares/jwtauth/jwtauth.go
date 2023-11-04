@@ -50,11 +50,8 @@ func New(opts ...Option) gin.HandlerFunc {
 	}
 
 	if cfg.firebaseAuth != nil {
-		println("Using firebase auth")
-
-		return FirebaseAuthVerify(cfg.firebaseAuth)
+		return FirebaseAuthVerify(cfg)
 	}
-	println("NO using firebase auth")
 
 	publicKey, _ := jwtV5.ParseRSAPublicKeyFromPEM([]byte(strings.ReplaceAll(os.Getenv("PUBLIC_KEY"), "\\n", "\n")))
 	jwtAuth := newJWTAuth("RS256", nil, publicKey)
